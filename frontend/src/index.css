@@ -1,0 +1,45 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --gov-navy-950: #070d1e;
+    --gov-navy-900: #0b132b;
+    --gov-navy-800: #1c2541;
+    --gov-navy-700: #29365c;
+    --gov-cyan-500: #06b6d4;
+    --gov-cyan-400: #22d3ee;
+    --gov-teal-600: #0d9488;
+    --gov-saffron-500: #ea580c;
+    --gov-saffron-400: #f97316;
+    --gov-green-500: #10b981;
+    --gov-amber-500: #f59e0b;
+    --gov-red-500: #ef4444;
+    --gov-purple-500: #8b5cf6;
+  }
+
+  body {
+    background-color: #0b132b;
+    color: #f1f5f9;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+  }
+
+  /* Custom government enterprise scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0b132b;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #29365c;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #06b6d4;
+  }
+}

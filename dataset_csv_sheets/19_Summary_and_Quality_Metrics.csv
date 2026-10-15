@@ -1,0 +1,13 @@
+﻿metric_id,metric_category,metric_name,metric_value,calculation_basis,target_threshold,compliance_status,notes
+MTR-001,INGESTION_METRIC,Total Raw Files Inspected in Downloads,244,File system count in C:/Users/pankh/Downloads,>= 10,PASSED,Comprehensive inspection of entire downloads folder.
+MTR-002,INGESTION_METRIC,Target Government Documents Collected,10,Count of verified government PDFs in source_documents/,,PASSED,All 10 target documents captured.
+MTR-003,INGESTION_METRIC,Non-Government Files Quarantined / Excluded,4,Count of personal PII & scratch docx files quarantined,>= 1,PASSED,"Identity Card.pdf, Doc5.docx, Doc8.docx, 19,20,23,24.docx safely quarantined."
+MTR-004,CORPUS_METRIC,Total Ingested Document Pages,790,Sum of all pages across 10 collected documents,>= 500,PASSED,"Includes 402 Constitution pages, 214 MoF manual pages, 104 Assam procurement pages."
+MTR-005,EXTRACTION_METRIC,Total Document Pages Processed via Native OCR,129,Sum of pages processed via Windows Media OCR engine,>= 120,PASSED,"ARTPS Act (9), ARTPS Rules (5), Cadre Strength (3), Vacancy Circular (8), Procurement (104)."
+MTR-006,PROVENANCE_AUDIT,Documents with Cryptographic Digital Signatures (PKCS#7),0,Count of PDFs with embedded /Type /Sig tokens,0 (Empirical),AUDITED,0% have PKCS#7 signatures. Highlights why physical gazette cross-check is mandatory.
+MTR-007,PROVENANCE_AUDIT,Documents Flagged with Third-Party Converter Metadata,4,Count of PDFs produced via adultpdf.com or ilovepdf.com,4 (Empirical),FLAGGED_SUSPECT,"ARTPS Act, ARTPS Rules, Assam Procurement Rules, Constitution of India."
+MTR-008,PROVENANCE_AUDIT,Documents Flagged for Temporal / Operational Uncertainty,2,Citizen Charter (vintage 2013) & CIC Vacancy (cycle expired),2 (Empirical),FLAGGED_TEMPORAL,GMC Citizen Charter 2013 and CIC Vacancy Circular 2025.
+MTR-009,DATA_QUALITY,Blank Scan Pages Empirically Detected,2,Pixel analysis std < 1.0 (Vacancy Circular pages 2 & 8),,PASSED,Zero semantic loss; verified as blank scan back-pages.
+MTR-010,RAG_RETRIEVAL,Semantic Retrieval Chunks Created,23,Granular legal chunks preserving clause boundaries,>= 20,PASSED,Complete structural provenance with third-party tool tags.
+MTR-011,SAFETY_METRIC,Evaluation Cases Requiring Abstention or Warning,6,Evaluation cases testing abstention / verification required,>= 5,PASSED,6 out of 8 benchmark cases correctly mandate abstention or warning.
+MTR-012,DATA_INTEGRITY,Percentage of Records with Audited Provenance Trails,100.0%,Audited records / total processed records * 100,,PASSED,Zero ungrounded trust labels; 100% auditable trust boundary adherence.

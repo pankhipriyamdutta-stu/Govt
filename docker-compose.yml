@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: nesfic_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:///./backend_gov.db
+      - SECRET_KEY=nesfic-d36-secure-tamper-evident-jwt-secret-2026
+      - DEMO_MODE=true
+      - ENVIRONMENT_NAME=DEMONSTRATION & PILOT ENVIRONMENT — NESFIC 2026
+    volumes:
+      - ./backend_gov.db:/app/backend_gov.db
+      - ./source_documents:/app/source_documents:ro
+      - ./dataset_csv_sheets:/app/dataset_csv_sheets:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: nesfic_frontend
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
