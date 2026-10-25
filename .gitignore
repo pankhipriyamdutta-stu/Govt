@@ -3,7 +3,11 @@ dist/
 __pycache__/
 *.pyc
 .pytest_cache/
+# Environment & Secrets (Never commit secrets)
 .env
+.env.*
+*.env
+!.env.example
 backend_gov.db
 ~$*.xlsx
 backend/uploads/*
