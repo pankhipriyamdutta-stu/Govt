@@ -8,6 +8,7 @@ import { SourceDetective } from './pages/SourceDetective';
 import { TrustSecurityCenter } from './pages/TrustSecurityCenter';
 import { ReportsWorkspace } from './pages/ReportsWorkspace';
 import { AdminControl } from './pages/AdminControl';
+import { VeritraceDashboard } from './pages/VeritraceDashboard';
 import { UserProfile } from './types';
 import { api } from './api';
 
@@ -74,6 +75,14 @@ export const App: React.FC = () => {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-gradient-to-b from-[#0B132B] via-[#0D1630] to-[#070D1E]">
           {currentPage === 'dashboard' && (
             <CommandCentre userProfile={userProfile} onNavigate={handleNavigate} />
+          )}
+
+          {currentPage === 'veritrace' && (
+            <VeritraceDashboard
+              userProfile={userProfile}
+              initialDocumentId={navigationPayload?.documentId}
+              initialTab={navigationPayload?.tab}
+            />
           )}
 
           {currentPage === 'copilot' && (

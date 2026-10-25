@@ -15,7 +15,9 @@ import {
   Copy,
   Check,
   Languages,
-  PenTool
+  PenTool,
+  Scan,
+  FileCheck2
 } from 'lucide-react';
 import { QueryResponse, UserProfile } from '../types';
 import { PageId } from '../components/Sidebar';
@@ -37,8 +39,15 @@ export const AiCopilot: React.FC<AiCopilotProps> = ({
   const [query, setQuery] = useState(initialQuery);
   const [loading, setLoading] = useState(false);
   const [response, setResponse] = useState<QueryResponse | null>(null);
-  const [activeTab, setActiveTab] = useState<'chat' | 'summarize' | 'compare' | 'translate' | 'draft'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'scanner' | 'summarize' | 'compare' | 'translate' | 'draft'>('chat');
   const [copied, setCopied] = useState(false);
+
+  // Scanner state
+  const [scannerDocId, setScannerDocId] = useState('DOC-AS-SCST-001');
+  const [scannerFile, setScannerFile] = useState<File | null>(null);
+  const [scannerLoading, setScannerLoading] = useState(false);
+  const [scannerResult, setScannerResult] = useState<any>(null);
+  const [scannerError, setScannerError] = useState<string | null>(null);
 
   // Tool states
   const [summaryDocId, setSummaryDocId] = useState('DOC-AS-ARTPS-001');
@@ -50,6 +59,24 @@ export const AiCopilot: React.FC<AiCopilotProps> = ({
   const [transResult, setTransResult] = useState<any>(null);
   const [draftSubject, setDraftSubject] = useState('Exemption of Examination Fees for SC and ST Candidates in Departmental Direct Recruitment');
   const [draftResult, setDraftResult] = useState<any>(null);
+
+  const handleExecuteScan = async () => {
+    setScannerLoading(true);
+    setScannerError(null);
+    try {
+      if (scannerFile) {
+        const res = await api.scanUploadedDocument(scannerFile);
+        setScannerResult(res);
+      } else {
+        const res = await api.scanDocumentRules(scannerDocId);
+        setScannerResult(res);
+      }
+    } catch (err: any) {
+      setScannerError(err.message || 'Scanning failed');
+    } finally {
+      setScannerLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (initialQuery) {
@@ -91,6 +118,18 @@ export const AiCopilot: React.FC<AiCopilotProps> = ({
         >
           <Bot className="w-4 h-4" />
           <span>Statutory QA & Reasoning</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('scanner')}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-semibold transition ${
+            activeTab === 'scanner'
+              ? 'bg-cyan-500 text-slate-950 shadow-lg shadow-cyan-500/20'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-[#1C2541]'
+          }`}
+        >
+          <Scan className="w-4 h-4" />
+          <span>AI Document Scanner & Rules</span>
         </button>
 
         <button
@@ -264,9 +303,19 @@ export const AiCopilot: React.FC<AiCopilotProps> = ({
                     </div>
                   )}
 
-                  <span className="text-xs text-slate-400 font-mono">
-                    {response.latency_ms}ms • Model: {response.model_used}
-                  </span>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs text-slate-400 font-mono">
+                      {response.latency_ms}ms
+                    </span>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center space-x-1.5 ${
+                      response.model_used.includes('gemini')
+                        ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-300'
+                        : 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
+                    }`}>
+                      <Sparkles className="w-3 h-3 text-cyan-400" />
+                      <span>{response.model_used.includes('gemini') ? `Generative AI: ${response.model_used}` : `Sovereign Engine: ${response.model_used}`}</span>
+                    </span>
+                  </div>
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -388,6 +437,300 @@ export const AiCopilot: React.FC<AiCopilotProps> = ({
                 >
                   Verify Cryptographic Block in Security Centre →
                 </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: AI DOCUMENT SCANNER & STATUTORY RULE EXTRACTOR */}
+      {activeTab === 'scanner' && (
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="bg-[#1C2541]/70 border border-[#29365C] p-6 rounded-2xl shadow-xl space-y-2">
+            <div className="flex items-center space-x-2 text-cyan-400 text-xs font-semibold uppercase tracking-wider">
+              <Scan className="w-4 h-4" />
+              <span>Institutional Document Intelligence Engine</span>
+            </div>
+            <h2 className="text-xl font-extrabold text-white">
+              Generative AI Document Scanner & Statutory Rule Extractor
+            </h2>
+            <p className="text-xs text-slate-400 max-w-3xl leading-relaxed">
+              Scan official Assam state gazettes, citizen charters, and departmental uploads. 
+              The system conducts cryptographic integrity hashing, forensic converter anomaly detection, 
+              and extracts exact statutory rules, applicability criteria, and penalties without hallucination.
+            </p>
+          </div>
+
+          {/* Scanner Input Card */}
+          <div className="bg-[#070D1E] border border-slate-800 p-6 rounded-2xl space-y-4">
+            <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+              Select Repository Document or Upload File to Scan:
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div>
+                <label className="text-xs text-slate-400 font-semibold mb-1.5 block">
+                  Select Official Statute from Repository:
+                </label>
+                <select
+                  value={scannerDocId}
+                  onChange={(e) => {
+                    setScannerDocId(e.target.value);
+                    setScannerFile(null);
+                  }}
+                  className="w-full bg-[#1C2541] border border-slate-700 text-slate-100 text-xs rounded-xl px-4 py-3 focus:outline-none focus:border-cyan-400"
+                >
+                  <option value="DOC-AS-SCST-001">Assam Act No. XXXI of 2024 (SC/ST Exam Fee Exemption — Zone 1 Gazette)</option>
+                  <option value="DOC-AS-ARTPS-001">Assam Right to Public Services Act, 2012 (AdultPDF Converter Flag)</option>
+                  <option value="DOC-AS-GMC-001">Guwahati Municipal Corporation Citizen Charter (2013 Nitro Pro Vintage)</option>
+                  <option value="DOC-AS-PROC-001">Assam Public Procurement Rules, 2020 (iLovePDF Compression Flag)</option>
+                  <option value="EXC-ID-001">Scanned Citizen Identification Card (Quarantined PII Trap)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs text-slate-400 font-semibold mb-1.5 block">
+                  Or Upload New Scanned PDF / Document:
+                </label>
+                <input
+                  type="file"
+                  accept=".pdf,.docx"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setScannerFile(e.target.files[0]);
+                    }
+                  }}
+                  className="w-full bg-[#1C2541] border border-slate-700 text-slate-300 text-xs rounded-xl px-4 py-2.5 focus:outline-none file:mr-3 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-500 file:text-slate-950 hover:file:bg-cyan-400"
+                />
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                onClick={handleExecuteScan}
+                disabled={scannerLoading}
+                className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-400 hover:to-teal-500 text-slate-950 font-bold px-6 py-3 rounded-xl text-xs flex items-center space-x-2 transition shadow-lg shadow-cyan-500/20 disabled:opacity-50"
+              >
+                {scannerLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
+                    <span>Scanning & Extracting Statutory Rules...</span>
+                  </>
+                ) : (
+                  <>
+                    <Scan className="w-4 h-4" />
+                    <span>Scan Document & Extract Statutory Rules</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {scannerError && (
+              <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
+                <span>{scannerError}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Scanner Output Report */}
+          {scannerResult && (
+            <div className="space-y-6">
+              {/* Trust Verdict Banner */}
+              <div className="bg-[#1C2541]/70 border border-[#29365C] rounded-2xl p-6 shadow-xl space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-700/60">
+                  <div className="flex items-center space-x-3">
+                    {scannerResult.trust_and_compliance.tripartite_verdict === 'VERIFIED' && (
+                      <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 font-extrabold text-xs">
+                        <ShieldCheck className="w-4 h-4" />
+                        <span>VERIFIED TRUSTED PRIMARY STATUTE</span>
+                      </div>
+                    )}
+
+                    {scannerResult.trust_and_compliance.tripartite_verdict === 'VERIFICATION_REQUIRED' && (
+                      <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 font-extrabold text-xs">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>VERIFICATION REQUIRED (PROVISIONAL AUDIT)</span>
+                      </div>
+                    )}
+
+                    {scannerResult.trust_and_compliance.tripartite_verdict === 'CANNOT_GENERATE' && (
+                      <div className="flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-400 font-extrabold text-xs">
+                        <XCircle className="w-4 h-4" />
+                        <span>CANNOT GENERATE / REJECTED QUARANTINE</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xs text-slate-400 font-mono">
+                        {scannerResult.latency_ms}ms
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 flex items-center space-x-1">
+                        <Sparkles className="w-3 h-3 text-cyan-400" />
+                        <span>Generative AI: {scannerResult.model_used}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={() => onNavigate('detective', { claimId: scannerResult.document_id })}
+                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-3.5 py-1.5 rounded-lg text-xs flex items-center space-x-1.5 transition"
+                    >
+                      <Search className="w-3.5 h-3.5" />
+                      <span>Inspect in Source Detective</span>
+                    </button>
+                    <button
+                      onClick={() => onNavigate('reports')}
+                      className="bg-[#070D1E] hover:bg-[#1C2541] border border-slate-700 text-slate-200 px-3.5 py-1.5 rounded-lg text-xs flex items-center space-x-1.5 transition"
+                    >
+                      <FileCheck2 className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Generate Evidence Certificate</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-[#070D1E] p-4 rounded-xl border border-slate-800 text-xs leading-relaxed text-slate-200">
+                  <div className="font-semibold text-slate-400 uppercase text-[10px] tracking-wider mb-1">
+                    Authoritative Statutory Rationale:
+                  </div>
+                  <p>{scannerResult.trust_and_compliance.authoritative_rationale}</p>
+                </div>
+              </div>
+
+              {/* Forensic Scan & Statutory Registry Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Forensic Card */}
+                <div className="bg-[#1C2541]/70 border border-[#29365C] p-5 rounded-2xl space-y-3.5 text-xs">
+                  <div className="font-bold text-white text-sm flex items-center space-x-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>Cryptographic & Forensic File Fingerprint</span>
+                  </div>
+                  <div className="space-y-2 bg-[#070D1E] p-3.5 rounded-xl border border-slate-800 font-mono text-[11px]">
+                    <div className="flex justify-between items-center text-slate-300">
+                      <span>SHA-256 Hash:</span>
+                      <span className="text-cyan-400 truncate max-w-[200px]">{scannerResult.forensic_scan.sha256_hash}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-300">
+                      <span>PDF Producer:</span>
+                      <span className="text-amber-300">{scannerResult.forensic_scan.producer}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-300">
+                      <span>Converter Anomaly:</span>
+                      <span className={scannerResult.forensic_scan.has_converter_anomaly ? 'text-rose-400 font-bold' : 'text-emerald-400 font-bold'}>
+                        {scannerResult.forensic_scan.has_converter_anomaly ? 'DETECTED (Third-Party Web Tool)' : 'CLEAN (Institutional Producer)'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-300">
+                      <span>Digital PKCS#7 Token:</span>
+                      <span className={scannerResult.forensic_scan.digital_signature_present ? 'text-emerald-400' : 'text-slate-400'}>
+                        {scannerResult.forensic_scan.digital_signature_present ? 'VERIFIED' : 'NOT PRESENT (Physical Scan)'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-300">
+                      <span>PII Sensitivity Shield:</span>
+                      <span className={scannerResult.trust_and_compliance.pii_risk_detected.includes('CRITICAL') ? 'text-rose-400 font-bold' : 'text-emerald-400'}>
+                        {scannerResult.trust_and_compliance.pii_risk_detected}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Statutory Identity Card */}
+                <div className="bg-[#1C2541]/70 border border-[#29365C] p-5 rounded-2xl space-y-3.5 text-xs">
+                  <div className="font-bold text-white text-sm flex items-center space-x-2">
+                    <FileText className="w-4 h-4 text-cyan-400" />
+                    <span>Statutory Identity & Gazette Registry</span>
+                  </div>
+                  <div className="space-y-2 bg-[#070D1E] p-3.5 rounded-xl border border-slate-800 text-[11px]">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Statute Title:</span>
+                      <span className="font-semibold text-white truncate max-w-[220px]">{scannerResult.document_title}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Issuing Department:</span>
+                      <span className="text-slate-200">{scannerResult.department}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Gazette / Ref No:</span>
+                      <span className="font-mono text-cyan-300">{scannerResult.reference_number}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Effective Date:</span>
+                      <span className="text-slate-200">{scannerResult.effective_date}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-400">Authority Tier:</span>
+                      <span className="font-bold text-emerald-400">{scannerResult.trust_and_compliance.authority_tier}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Extracted Rules Table */}
+              <div className="bg-[#1C2541]/70 border border-[#29365C] rounded-2xl p-6 shadow-xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-white">
+                      Generatively Extracted Statutory Rules & Mandates ({scannerResult.statutory_rules.length})
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Exact sections, legal rights, applicability boundaries, and penalty clauses identified from scan
+                    </p>
+                  </div>
+                </div>
+
+                {scannerResult.statutory_rules.length === 0 ? (
+                  <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs">
+                    No statutory rules extracted. Document is quarantined or non-statutory.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {scannerResult.statutory_rules.map((rule: any) => (
+                      <div
+                        key={rule.rule_id}
+                        className="bg-[#070D1E] border border-slate-800 p-4 rounded-xl space-y-2 text-xs"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-bold text-cyan-400 font-mono">{rule.section_number}</span>
+                            <span className="text-slate-400">•</span>
+                            <span className="font-semibold text-white">{rule.rule_title}</span>
+                          </div>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400">
+                            {rule.verification_status}
+                          </span>
+                        </div>
+
+                        <div className="text-slate-200 bg-[#1C2541]/40 p-3 rounded-lg border border-slate-800/80 italic">
+                          "{rule.exact_statutory_text}"
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] pt-1">
+                          <div>
+                            <span className="text-slate-400 font-semibold">Applicability: </span>
+                            <span className="text-slate-300">{rule.applicability_scope}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 font-semibold">Penalties / Timeline: </span>
+                            <span className="text-amber-300">{rule.penalties_or_deadlines}</span>
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                          <span>Evidence Hash: {rule.evidence_hash.substring(0, 24)}...</span>
+                          <button
+                            onClick={() => onNavigate('detective', { claimId: rule.rule_id })}
+                            className="text-cyan-400 hover:underline"
+                          >
+                            Trace in Evidence Ledger →
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

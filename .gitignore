@@ -6,3 +6,5 @@ __pycache__/
 .env
 backend_gov.db
 ~$*.xlsx
+backend/uploads/*
+!backend/uploads/.gitkeep

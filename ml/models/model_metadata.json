@@ -1,0 +1,69 @@
+{
+  "model_version": "Veritrace-ML-v2.0-Production",
+  "training_timestamp_utc": "2026-10-24T10:33:53.925414+00:00",
+  "model_type": "Calibrated Random Forest & Isolation Forest Multi-Model",
+  "split_strategy": "Document-Level GroupShuffleSplit (Zero-Leakage)",
+  "train_samples": 84,
+  "test_samples": 36,
+  "train_document_groups": [
+    "DOC_GROUP_07",
+    "DOC_GROUP_01",
+    "DOC_GROUP_05",
+    "DOC_GROUP_10",
+    "DOC_GROUP_03",
+    "DOC_GROUP_04",
+    "DOC_GROUP_08"
+  ],
+  "test_document_groups": [
+    "DOC_GROUP_09",
+    "DOC_GROUP_06",
+    "DOC_GROUP_02"
+  ],
+  "metrics": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1_score": 1.0,
+    "roc_auc": 1.0,
+    "false_positive_rate": 0.0,
+    "false_negative_rate": 0.0,
+    "confusion_matrix": {
+      "true_negatives": 12,
+      "false_positives": 0,
+      "false_negatives": 0,
+      "true_positives": 24
+    }
+  },
+  "feature_importances": {
+    "feat_layout_margin_ratio": 0.1149,
+    "feat_line_density": 0.0113,
+    "feat_metadata_anomaly_score": 0.1062,
+    "feat_structural_revision_count": 0.2514,
+    "feat_visual_ela_variance": 0.3626,
+    "feat_sharpness_disparity": 0.0948,
+    "feat_ocr_confidence": 0.0267,
+    "feat_signature_present": 0.0,
+    "feat_text_density": 0.0155,
+    "feat_active_script_indicators": 0.0164
+  },
+  "feature_names": [
+    "feat_layout_margin_ratio",
+    "feat_line_density",
+    "feat_metadata_anomaly_score",
+    "feat_structural_revision_count",
+    "feat_visual_ela_variance",
+    "feat_sharpness_disparity",
+    "feat_ocr_confidence",
+    "feat_signature_present",
+    "feat_text_density",
+    "feat_active_script_indicators"
+  ],
+  "limitations": [
+    "Evaluated against official Indian State Gazettes, notifications, and simulated adversarial variations.",
+    "Novel corporate invoice formats or handwritten forms require domain transfer calibration.",
+    "Visual Error Level Analysis may be affected by repeated multi-generation scanning passes."
+  ],
+  "model_artifacts": {
+    "supervised_classifier": "C:\\Users\\pankh\\OneDrive\\Desktop\\Govt\\ml\\models\\supervised_fraud_classifier.joblib",
+    "anomaly_detector": "C:\\Users\\pankh\\OneDrive\\Desktop\\Govt\\ml\\models\\isolation_forest_fraud_detector.joblib"
+  }
+}

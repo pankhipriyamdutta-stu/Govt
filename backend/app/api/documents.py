@@ -1,6 +1,8 @@
 import os
+import time
 import shutil
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from typing import Optional, List
 from app.database import get_db
@@ -9,6 +11,7 @@ from app.models.document import Document, DocumentVersion, DocumentFile, Structu
 from app.models.user import User
 from app.api.auth import get_current_user
 from app.services.crypto_service import calculate_sha256, inspect_pdf_authenticity
+from app.services.ai_service import AIService
 
 router = APIRouter(prefix="/documents", tags=["Knowledge & Document Repository"])
 
@@ -215,3 +218,57 @@ async def upload_document(
         "verification_status": new_doc.verification_status,
         "message": "Document successfully ingested and quarantined for verification officer audit. It will NOT enter authoritative search until formally approved."
     }
+
+class ScanRulesRequest(BaseModel):
+    document_id: Optional[str] = None
+
+@router.post("/scan-rules")
+def scan_document_rules(
+    req: ScanRulesRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Executes Generative AI Document Scanning & Statutory Rule Extraction:
+    - Runs cryptographic & forensic PDF trailer inspection
+    - Generatively extracts Act Name, Section, Legal Mandates, Applicability, and Penalties
+    - Cross-verifies with Approved Government Publishing Registry & Gazette Zone
+    - Outputs Tripartite Trust Verdict (VERIFIED, VERIFICATION_REQUIRED, CANNOT_GENERATE)
+    """
+    if not req.document_id:
+        raise HTTPException(status_code=400, detail="document_id is required for statutory scanning.")
+    
+    result = AIService.scan_and_extract_document_rules(db, document_id=req.document_id)
+    return result
+
+@router.post("/scan-upload")
+async def scan_uploaded_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    Directly scans and extracts statutory rules from an uploaded PDF/document:
+    - Calculates SHA-256 immediately
+    - Conducts forensic converter anomaly scan
+    - Generatively extracts statutory rules, mandates, and compliance conditions
+    - Emits tripartite trust assessment
+    """
+    clean_filename = os.path.basename(file.filename or "uploaded_scan.pdf")
+    temp_path = os.path.join(settings.UPLOAD_DIR, f"scan_{int(time.time())}_{clean_filename}")
+    
+    with open(temp_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    try:
+        result = AIService.scan_and_extract_document_rules(
+            db,
+            file_path=temp_path,
+            filename=clean_filename
+        )
+        return result
+    finally:
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+

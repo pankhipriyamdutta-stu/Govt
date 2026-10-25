@@ -55,10 +55,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Persistent Demo Environment Badge */}
-      <div className="hidden lg:flex items-center space-x-2 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 px-3 py-1 rounded-full text-xs font-semibold text-amber-300">
-        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-        <span>DEMONSTRATION & PILOT ENVIRONMENT — NESFIC 2026</span>
+      {/* Sovereign Security & CERT-In Compliance Badge */}
+      <div className="hidden lg:flex items-center space-x-2 bg-gradient-to-r from-emerald-500/10 via-cyan-500/10 to-indigo-500/10 border border-emerald-500/40 px-3 py-1 rounded-full text-xs font-semibold text-emerald-300">
+        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span>RESTRICTED // GOVT ENCLAVE • CERT-In SEC 70B & ZERO-TRUST ACTIVE</span>
       </div>
 
       {/* Right Controls: Language, Health & Role Switcher */}

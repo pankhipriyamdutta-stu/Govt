@@ -53,3 +53,11 @@ class EvaluationCase(Base):
     reviewer = Column(String(100), default="REV-EVAL-01")
     evaluation_result = Column(String(50), default="PASS")
     notes = Column(Text, nullable=True)
+
+class SystemSetting(Base):
+    __tablename__ = "system_settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(100), unique=True, index=True, nullable=False)
+    value = Column(Text, nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

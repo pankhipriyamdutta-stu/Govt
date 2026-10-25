@@ -8,10 +8,11 @@ import {
   FileSpreadsheet,
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Fingerprint
 } from 'lucide-react';
 
-export type PageId = 'dashboard' | 'copilot' | 'repository' | 'detective' | 'security' | 'reports' | 'admin';
+export type PageId = 'dashboard' | 'veritrace' | 'copilot' | 'repository' | 'detective' | 'security' | 'reports' | 'admin';
 
 interface SidebarProps {
   currentPage: PageId;
@@ -36,11 +37,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       icon: LayoutDashboard,
     },
     {
+      id: 'veritrace' as PageId,
+      label: 'VERITRACE AI',
+      description: 'Fraud, Forensics & Provenance',
+      icon: Fingerprint,
+      badge: 'CYBER',
+      highlight: true
+    },
+    {
       id: 'copilot' as PageId,
       label: 'AI Co-Pilot',
       description: 'Tripartite Grounded Assistant',
       icon: Bot,
-      highlight: true
+      highlight: false
     },
     {
       id: 'repository' as PageId,

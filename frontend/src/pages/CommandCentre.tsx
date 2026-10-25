@@ -12,7 +12,8 @@ import {
   Clock,
   Sparkles,
   Lock,
-  ExternalLink
+  ExternalLink,
+  Fingerprint
 } from 'lucide-react';
 import { UserProfile, DocumentItem } from '../types';
 import { PageId } from '../components/Sidebar';
@@ -140,7 +141,7 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({ userProfile, onNav
       </div>
 
       {/* Quick Action Pathways */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <button
           onClick={() => onNavigate('copilot')}
           className="text-left bg-gradient-to-br from-[#1C2541] to-[#0B132B] hover:from-[#29365C] hover:to-[#1C2541] border border-cyan-500/30 p-5 rounded-xl transition group shadow-lg"
@@ -153,7 +154,23 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({ userProfile, onNav
             <ArrowRight className="w-4 h-4 text-cyan-400 group-hover:translate-x-1 transition" />
           </h3>
           <p className="text-xs text-slate-400 mt-1">
-            Engage with tripartite grounded decision support, citations, and instant claim verification.
+            Tripartite grounded decision support, legal basis, and instant rule queries.
+          </p>
+        </button>
+
+        <button
+          onClick={() => onNavigate('veritrace', { tab: 'forensics_suite' })}
+          className="text-left bg-gradient-to-br from-[#1C2541] to-[#0B132B] hover:from-[#29365C] hover:to-[#1C2541] border border-cyan-500/40 p-5 rounded-xl transition group shadow-lg"
+        >
+          <div className="w-10 h-10 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-3 group-hover:scale-105 transition">
+            <Fingerprint className="w-5 h-5" />
+          </div>
+          <h3 className="font-bold text-white text-sm group-hover:text-cyan-300 transition flex items-center justify-between">
+            VERITRACE Forensic Suite
+            <ArrowRight className="w-4 h-4 text-cyan-400 group-hover:translate-x-1 transition" />
+          </h3>
+          <p className="text-xs text-slate-400 mt-1">
+            Detect visual tampering, verify Merkle provenance, and inspect seal authenticity.
           </p>
         </button>
 
@@ -169,7 +186,7 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({ userProfile, onNav
             <ArrowRight className="w-4 h-4 text-teal-400 group-hover:translate-x-1 transition" />
           </h3>
           <p className="text-xs text-slate-400 mt-1">
-            Inspect the 360-degree forensic evidence trail, SHA-256 integrity, and signer authority.
+            360-degree forensic evidence trail, SHA-256 integrity, and signer authority.
           </p>
         </button>
 
@@ -185,7 +202,7 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({ userProfile, onNav
             <ArrowRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-1 transition" />
           </h3>
           <p className="text-xs text-slate-400 mt-1">
-            Browse verified state gazettes, citizen charters, procurement rules, and version lineages.
+            Verified state gazettes, citizen charters, procurement rules, and lineages.
           </p>
         </button>
       </div>
@@ -215,7 +232,7 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({ userProfile, onNav
                 <th className="py-2.5 px-3">Type</th>
                 <th className="py-2.5 px-3">Reference / Gazette</th>
                 <th className="py-2.5 px-3">Trust State</th>
-                <th className="py-2.5 px-3 text-right">Action</th>
+                <th className="py-2.5 px-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60">
@@ -237,19 +254,25 @@ export const CommandCentre: React.FC<CommandCentreProps> = ({ userProfile, onNav
                   </td>
                   <td className="py-3 px-3">
                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                      doc.verification_status.includes('VERIFIED')
+                      (doc.verification_status || '').includes('VERIFIED')
                         ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                         : 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
                     }`}>
-                      {doc.verification_status.includes('VERIFIED') ? 'VERIFIED' : 'VERIFY REQUIRED'}
+                      {(doc.verification_status || '').includes('VERIFIED') ? 'VERIFIED' : 'VERIFY REQUIRED'}
                     </span>
                   </td>
-                  <td className="py-3 px-3 text-right">
+                  <td className="py-3 px-3 text-right space-x-2">
+                    <button
+                      onClick={() => onNavigate('veritrace', { documentId: doc.document_id, tab: 'forensics_suite' })}
+                      className="text-cyan-400 hover:text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30 font-medium text-[11px]"
+                    >
+                      Audit Fraud
+                    </button>
                     <button
                       onClick={() => onNavigate('detective', { claimId: doc.document_id })}
-                      className="text-cyan-400 hover:text-cyan-300 font-medium hover:underline text-[11px]"
+                      className="text-slate-400 hover:text-slate-200 font-medium hover:underline text-[11px]"
                     >
-                      Audit Trail
+                      Lineage
                     </button>
                   </td>
                 </tr>

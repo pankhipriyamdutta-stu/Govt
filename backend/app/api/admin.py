@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 from typing import Optional, List
 from app.database import get_db
 from app.models.document import Document, Source
@@ -142,3 +143,166 @@ def get_evaluation_suite(db: Session = Depends(get_db)):
         }
         for c in cases
     ]
+
+# ==============================================================================
+# GENERATIVE AI CONFIGURATION & TRAINING MANAGEMENT
+# ==============================================================================
+
+class AIConfigRequest(BaseModel):
+    api_key: Optional[str] = None
+    model_name: Optional[str] = "gemini-2.5-flash"
+    temperature: Optional[float] = 0.0
+
+class TestConnectionRequest(BaseModel):
+    api_key: Optional[str] = None
+    model_name: Optional[str] = "gemini-2.5-flash"
+
+@router.get("/ai-config")
+def get_ai_config(db: Session = Depends(get_db)):
+    """Returns current active AI model provider and masked API key status."""
+    from app.services.ai_service import AIService
+    cfg = AIService.get_active_model_config(db)
+    raw_key = cfg["api_key"]
+    masked_key = ""
+    if raw_key:
+        masked_key = raw_key[:6] + "..." + raw_key[-4:] if len(raw_key) > 10 else "******"
+
+    return {
+        "active_model": cfg["model_name"],
+        "provider": cfg["provider"],
+        "has_api_key": cfg["has_api_key"],
+        "masked_api_key": masked_key,
+        "supported_models": [
+            {"id": "gemini-2.5-flash", "name": "Google Gemini 2.5 Flash (Recommended - Ultra Fast)", "is_recommended": True},
+            {"id": "gemini-1.5-flash", "name": "Google Gemini 1.5 Flash (Production Stable)", "is_recommended": False},
+            {"id": "gemini-2.0-flash", "name": "Google Gemini 2.0 Flash (Next-Gen Multimodal)", "is_recommended": False},
+            {"id": "gemini-2.5-pro", "name": "Google Gemini 2.5 Pro (Deep Statutory Reasoning)", "is_recommended": False},
+            {"id": "local-sovereign", "name": "Sovereign Neural Grounded Reasoner (Offline Govt Node)", "is_recommended": False}
+        ]
+    }
+
+@router.post("/ai-config")
+def update_ai_config(req: AIConfigRequest, db: Session = Depends(get_db)):
+    """Updates AI model configuration and persists API key in secure system settings."""
+    from app.models.audit import SystemSetting
+
+    if req.api_key is not None:
+        key_record = db.query(SystemSetting).filter(SystemSetting.key == "GEMINI_API_KEY").first()
+        if not key_record:
+            key_record = SystemSetting(key="GEMINI_API_KEY", value=req.api_key.strip())
+            db.add(key_record)
+        else:
+            key_record.value = req.api_key.strip()
+
+    if req.model_name:
+        model_record = db.query(SystemSetting).filter(SystemSetting.key == "ACTIVE_AI_MODEL").first()
+        if not model_record:
+            model_record = SystemSetting(key="ACTIVE_AI_MODEL", value=req.model_name.strip())
+            db.add(model_record)
+        else:
+            model_record.value = req.model_name.strip()
+
+    db.commit()
+
+    return {
+        "status": "CONFIG_UPDATED",
+        "active_model": req.model_name,
+        "message": "AI model configuration updated successfully. Grounding and inference will immediately utilize the new provider."
+    }
+
+@router.post("/test-ai-connection")
+def test_ai_connection(req: TestConnectionRequest, db: Session = Depends(get_db)):
+    """Tests the connection to Google Gemini API using the provided or stored key."""
+    import httpx
+    from app.services.ai_service import AIService
+
+    key = req.api_key
+    if not key or not key.strip():
+        cfg = AIService.get_active_model_config(db)
+        key = cfg["api_key"]
+
+    if not key or not key.strip():
+        return {
+            "status": "NO_KEY_PROVIDED",
+            "connected": False,
+            "message": "No API key configured. Platform will operate via the Sovereign Grounded Engine."
+        }
+
+    model = req.model_name or "gemini-2.5-flash"
+    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key.strip()}"
+    test_payload = {
+        "contents": [{"parts": [{"text": "Hello, respond with the single word: READY"}]}]
+    }
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            res = client.post(endpoint, json=test_payload)
+            if res.status_code == 200:
+                return {
+                    "status": "CONNECTED",
+                    "connected": True,
+                    "model": model,
+                    "message": f"Successfully connected to Google Gemini API ({model}). Active Generative AI reasoning is fully operational!"
+                }
+            else:
+                err_text = res.text
+                return {
+                    "status": "API_ERROR",
+                    "connected": False,
+                    "status_code": res.status_code,
+                    "message": f"Google Gemini API error ({res.status_code}): {err_text[:200]}"
+                }
+    except Exception as e:
+        return {
+            "status": "NETWORK_ERROR",
+            "connected": False,
+            "message": f"Failed to reach Google API endpoint: {str(e)}"
+        }
+
+@router.get("/ai-training-status")
+def get_ai_training_status():
+    """Returns training dataset compilation and fine-tuning readiness metrics."""
+    from app.services.ai_training_service import AITrainingService
+    return AITrainingService.get_training_status()
+
+@router.post("/rebuild-training-dataset")
+def rebuild_training_dataset():
+    """Compiles the master CSV sheets into Gemini SFT and Alpaca fine-tuning formats."""
+    from app.services.ai_training_service import AITrainingService
+    res = AITrainingService.build_training_dataset()
+    return res
+
+@router.post("/run-training-eval")
+def run_training_evaluation(db: Session = Depends(get_db)):
+    """Executes the benchmark evaluation queries against the active generative AI configuration."""
+    from app.services.ai_service import AIService
+    from app.models.audit import EvaluationCase
+
+    eval_cases = db.query(EvaluationCase).all()
+    results = []
+    passed = 0
+
+    for ev in eval_cases:
+        ans = AIService.process_query(db, ev.query)
+        is_pass = (ans["status"] == ev.expected_status)
+        if is_pass:
+            passed += 1
+
+        results.append({
+            "eval_id": ev.evaluation_id,
+            "query": ev.query,
+            "expected_status": ev.expected_status,
+            "actual_status": ans["status"],
+            "model_used": ans["model_used"],
+            "latency_ms": ans["latency_ms"],
+            "is_pass": is_pass
+        })
+
+    accuracy = (passed / len(eval_cases) * 100) if eval_cases else 100.0
+    return {
+        "total_cases": len(eval_cases),
+        "passed": passed,
+        "accuracy_percentage": f"{accuracy:.1f}%",
+        "results": results
+    }
+

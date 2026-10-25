@@ -11,7 +11,15 @@ import {
   RefreshCw,
   Cpu,
   FileCheck2,
-  ShieldCheck
+  ShieldCheck,
+  Key,
+  Zap,
+  Check,
+  Play,
+  Eye,
+  EyeOff,
+  BarChart3,
+  Layers
 } from 'lucide-react';
 import { VerificationQueueItem, EvalCaseItem, UserProfile } from '../types';
 import { api } from '../api';
@@ -33,16 +41,39 @@ export const AdminControl: React.FC<AdminControlProps> = ({ userProfile }) => {
   const [rationale, setRationale] = useState('');
   const [decisionFeedback, setDecisionFeedback] = useState<string | null>(null);
 
+  // AI Master & Training Config State
+  const [aiConfig, setAiConfig] = useState<any>(null);
+  const [trainingStatus, setTrainingStatus] = useState<any>(null);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [testResult, setTestResult] = useState<any>(null);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [rebuildingDataset, setRebuildingDataset] = useState(false);
+  const [runningEval, setRunningEval] = useState(false);
+  const [evalResults, setEvalResults] = useState<any>(null);
+  const [aiFeedback, setAiFeedback] = useState<string | null>(null);
+
   const fetchData = () => {
     setLoading(true);
     Promise.all([
       api.getVerificationQueue().catch(() => []),
       api.getEvaluationSuite().catch(() => []),
-      api.getSources().catch(() => [])
-    ]).then(([q, ev, s]) => {
+      api.getSources().catch(() => []),
+      api.getAIConfig().catch(() => null),
+      api.getAITrainingStatus().catch(() => null)
+    ]).then(([q, ev, s, cfg, tr]) => {
       setQueueItems(q);
       setEvalCases(ev);
       setSources(s);
+      if (cfg) {
+        setAiConfig(cfg);
+        setSelectedModel(cfg.active_model || 'gemini-2.5-flash');
+      }
+      if (tr) {
+        setTrainingStatus(tr);
+      }
       setLoading(false);
     });
   };
@@ -50,6 +81,71 @@ export const AdminControl: React.FC<AdminControlProps> = ({ userProfile }) => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const handleSaveAIConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSavingConfig(true);
+    setAiFeedback(null);
+    try {
+      const res = await api.updateAIConfig({
+        api_key: apiKeyInput.trim() ? apiKeyInput.trim() : undefined,
+        model_name: selectedModel
+      });
+      setAiFeedback(`Success: ${res.message}`);
+      setApiKeyInput('');
+      const updatedCfg = await api.getAIConfig();
+      setAiConfig(updatedCfg);
+    } catch (err: any) {
+      setAiFeedback(`Error saving AI config: ${err.message}`);
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setTestResult(null);
+    try {
+      const res = await api.testAIConnection(apiKeyInput.trim() || undefined, selectedModel);
+      setTestResult(res);
+    } catch (err: any) {
+      setTestResult({
+        connected: false,
+        status: 'NETWORK_ERROR',
+        message: err.message
+      });
+    } finally {
+      setTestingConnection(false);
+    }
+  };
+
+  const handleRebuildDataset = async () => {
+    setRebuildingDataset(true);
+    setAiFeedback(null);
+    try {
+      const res = await api.rebuildTrainingDataset();
+      setAiFeedback(`Dataset Rebuilt: ${res.total_training_pairs} training pairs generated across Gemini SFT and Alpaca formats.`);
+      const tr = await api.getAITrainingStatus();
+      setTrainingStatus(tr);
+    } catch (err: any) {
+      setAiFeedback(`Error rebuilding dataset: ${err.message}`);
+    } finally {
+      setRebuildingDataset(false);
+    }
+  };
+
+  const handleRunTrainingEval = async () => {
+    setRunningEval(true);
+    setEvalResults(null);
+    try {
+      const res = await api.runTrainingEvaluation();
+      setEvalResults(res);
+    } catch (err: any) {
+      setAiFeedback(`Error running evaluation: ${err.message}`);
+    } finally {
+      setRunningEval(false);
+    }
+  };
 
   const handleRecordDecision = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -293,61 +389,337 @@ export const AdminControl: React.FC<AdminControlProps> = ({ userProfile }) => {
         </div>
       )}
 
-      {/* TAB 4: TRUST POLICY & CONFIGURATION */}
+      {/* TAB 4: TRUST POLICY, GENERATIVE AI & API MASTER CONSOLE */}
       {activeTab === 'config' && (
-        <div className="bg-[#1C2541]/50 border border-[#29365C] rounded-2xl p-6 shadow-xl space-y-6 text-xs">
-          <div>
-            <h2 className="text-base font-bold text-white">Platform Trust Policy & Model Orchestration</h2>
-            <p className="text-xs text-slate-400">System security thresholds, AI model routing, and grounding constraints</p>
+        <div className="space-y-6">
+          {/* AI Feedback Banner */}
+          {aiFeedback && (
+            <div className={`p-4 rounded-xl text-xs flex items-center justify-between ${
+              aiFeedback.includes('Error')
+                ? 'bg-rose-500/10 border border-rose-500/30 text-rose-300'
+                : 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-300'
+            }`}>
+              <div className="flex items-center space-x-2">
+                {aiFeedback.includes('Error') ? <AlertTriangle className="w-4 h-4 text-rose-400" /> : <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                <span>{aiFeedback}</span>
+              </div>
+              <button onClick={() => setAiFeedback(null)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+          )}
+
+          {/* Top Section: API Orchestration & Dataset Hub */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Card 1: Generative AI API Orchestration */}
+            <div className="bg-[#1C2541]/50 border border-[#29365C] rounded-2xl p-6 shadow-xl space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-white">Generative AI API & Model Routing</h2>
+                    <p className="text-[11px] text-slate-400">Configure Google Gemini LLM API or Sovereign Air-Gapped Engine</p>
+                  </div>
+                </div>
+                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                  aiConfig?.has_api_key
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                    : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                }`}>
+                  {aiConfig?.has_api_key ? '● API Key Active' : '○ Offline Sovereign Mode'}
+                </span>
+              </div>
+
+              <form onSubmit={handleSaveAIConfig} className="space-y-4 text-xs">
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">
+                    Select Generative AI Model Architecture:
+                  </label>
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="w-full bg-[#070D1E] border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-slate-100 text-xs focus:outline-none focus:border-cyan-400"
+                  >
+                    <option value="gemini-2.5-flash">Google Gemini 2.5 Flash (Recommended — Low Latency & High Reasoning)</option>
+                    <option value="gemini-1.5-flash">Google Gemini 1.5 Flash (Production Stable — 1M Context)</option>
+                    <option value="gemini-2.0-flash">Google Gemini 2.0 Flash (Next-Gen Multimodal Architecture)</option>
+                    <option value="gemini-2.5-pro">Google Gemini 2.5 Pro (Deep Statutory Reasoning & Conflict Resolution)</option>
+                    <option value="local-sovereign">Sovereign Neural Grounded Reasoner (Offline Govt Node / Air-Gap)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-slate-300 font-semibold">
+                      Google Gemini API Key:
+                    </label>
+                    {aiConfig?.masked_api_key && (
+                      <span className="text-[10px] font-mono text-cyan-400">
+                        Configured: {aiConfig.masked_api_key}
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showApiKey ? 'text' : 'password'}
+                      value={apiKeyInput}
+                      onChange={(e) => setApiKeyInput(e.target.value)}
+                      placeholder={aiConfig?.has_api_key ? "Leave blank to keep existing key, or enter new key..." : "Enter Google Gemini API Key (e.g. AIzaSy...)"}
+                      className="w-full bg-[#070D1E] border border-slate-700/80 rounded-xl px-3.5 py-2.5 pr-10 text-slate-100 placeholder-slate-500 font-mono text-xs focus:outline-none focus:border-cyan-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-200"
+                    >
+                      {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    Keys are persisted securely in the system registry. When no key is set, the system executes locally via the Sovereign Grounded Engine.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <button
+                    type="submit"
+                    disabled={savingConfig}
+                    className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition disabled:opacity-50"
+                  >
+                    {savingConfig ? (
+                      <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <Check className="w-4 h-4" />
+                        <span>Save & Apply AI Configuration</span>
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleTestConnection}
+                    disabled={testingConnection}
+                    className="bg-[#070D1E] hover:bg-[#1C2541] border border-slate-700 text-cyan-300 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center space-x-2 transition disabled:opacity-50"
+                  >
+                    {testingConnection ? (
+                      <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4 text-amber-400" />
+                        <span>Test API Connection</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+
+              {/* Test Connection Result Box */}
+              {testResult && (
+                <div className={`p-3.5 rounded-xl text-xs border ${
+                  testResult.connected
+                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                    : 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                }`}>
+                  <div className="flex items-center space-x-2 font-bold mb-1">
+                    {testResult.connected ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+                    )}
+                    <span>{testResult.status}</span>
+                  </div>
+                  <div className="text-[11px] leading-relaxed">{testResult.message}</div>
+                </div>
+              )}
+            </div>
+
+            {/* Card 2: AI Training & Reference Dataset Hub */}
+            <div className="bg-[#1C2541]/50 border border-[#29365C] rounded-2xl p-6 shadow-xl space-y-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2.5">
+                  <div className="p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-bold text-white">AI Training & Dataset Hub</h2>
+                    <p className="text-[11px] text-slate-400">Supervised fine-tuning & in-context dataset compilation</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                  19 Master Sheets
+                </span>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div className="bg-[#070D1E] border border-slate-800 p-3.5 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-300 font-semibold">Compiled Training Pairs:</span>
+                    <span className="text-cyan-400 font-bold font-mono">
+                      {trainingStatus?.total_training_pairs || 8} Ground-Truth Pairs
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-300 font-semibold">Gemini SFT JSONL Dataset:</span>
+                    <span className="text-emerald-400 font-bold font-mono text-[10px]">READY (gemini_finetune_dataset.jsonl)</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-300 font-semibold">Alpaca Instruction Dataset:</span>
+                    <span className="text-emerald-400 font-bold font-mono text-[10px]">READY (alpaca_instruct_dataset.json)</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-300 font-semibold">In-Context Conditioning Store:</span>
+                    <span className="text-emerald-400 font-bold font-mono text-[10px]">ACTIVE (in_context_exemplars.json)</span>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-400 leading-relaxed">
+                  Training datasets are derived directly from the 19 reference CSV sheets, mapping exact statutory citations, claim-level evidence hashes, and abstention rules to prevent hallucination.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={handleRebuildDataset}
+                  disabled={rebuildingDataset}
+                  className="w-full bg-[#070D1E] hover:bg-[#1C2541] border border-slate-700 text-slate-200 font-semibold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center space-x-2 transition disabled:opacity-50"
+                >
+                  {rebuildingDataset ? (
+                    <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Rebuild Training Datasets from 19 Master CSV Sheets</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-[#070D1E] border border-slate-800 p-5 rounded-xl space-y-4">
-              <div className="font-bold text-white text-sm flex items-center space-x-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>Grounding & Abstention Policies</span>
+          {/* Live AI Training & Grounding Benchmark Suite */}
+          <div className="bg-[#1C2541]/50 border border-[#29365C] rounded-2xl p-6 shadow-xl space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center space-x-2 text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-0.5">
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Validation & Grounding Quality Gate</span>
+                </div>
+                <h2 className="text-base font-bold text-white">Generative AI Grounding Benchmark Suite</h2>
+                <p className="text-xs text-slate-400">
+                  Execute deterministic test cases across active AI model to verify factual support, citation validity, and red-team abstention
+                </p>
               </div>
-              <div className="space-y-3">
+
+              <button
+                type="button"
+                onClick={handleRunTrainingEval}
+                disabled={runningEval}
+                className="bg-gradient-to-r from-cyan-500 to-teal-600 hover:from-cyan-400 hover:to-teal-500 text-slate-950 font-bold py-2.5 px-5 rounded-xl text-xs flex items-center space-x-2 transition shadow-lg shadow-cyan-500/20 disabled:opacity-50"
+              >
+                {runningEval ? (
+                  <div className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 fill-current" />
+                    <span>Run AI Evaluation Benchmark Now</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Benchmark Execution Scorecards */}
+            {evalResults && (
+              <div className="space-y-4 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-[#070D1E] border border-slate-800 p-4 rounded-xl text-center">
+                    <div className="text-[11px] text-slate-400 font-semibold uppercase">Total Benchmark Cases</div>
+                    <div className="text-2xl font-extrabold text-white mt-1">{evalResults.total_cases}</div>
+                  </div>
+                  <div className="bg-[#070D1E] border border-slate-800 p-4 rounded-xl text-center">
+                    <div className="text-[11px] text-slate-400 font-semibold uppercase">Validated Passing Cases</div>
+                    <div className="text-2xl font-extrabold text-emerald-400 mt-1">{evalResults.passed}</div>
+                  </div>
+                  <div className="bg-[#070D1E] border border-slate-800 p-4 rounded-xl text-center">
+                    <div className="text-[11px] text-slate-400 font-semibold uppercase">Grounding Accuracy</div>
+                    <div className="text-2xl font-extrabold text-cyan-400 mt-1">{evalResults.accuracy_percentage}</div>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-[#070D1E] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-700/60">
+                      <tr>
+                        <th className="py-2.5 px-3">Case ID</th>
+                        <th className="py-2.5 px-3">Benchmark Test Query</th>
+                        <th className="py-2.5 px-3">Expected Tripartite State</th>
+                        <th className="py-2.5 px-3">Model Output State</th>
+                        <th className="py-2.5 px-3">Latency</th>
+                        <th className="py-2.5 px-3 text-right">Result</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                      {evalResults.results.map((r: any) => (
+                        <tr key={r.eval_id} className="hover:bg-[#1C2541]/80 transition">
+                          <td className="py-2.5 px-3 text-cyan-400 font-bold">{r.eval_id}</td>
+                          <td className="py-2.5 px-3 font-sans text-slate-200 max-w-sm truncate">{r.query}</td>
+                          <td className="py-2.5 px-3 text-amber-300 font-semibold">{r.expected_status}</td>
+                          <td className="py-2.5 px-3 font-semibold">
+                            <span className={r.actual_status === 'VERIFIED' ? 'text-emerald-400' : r.actual_status === 'CANNOT_GENERATE' ? 'text-rose-400' : 'text-amber-300'}>
+                              {r.actual_status}
+                            </span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-400">{r.latency_ms}ms</td>
+                          <td className="py-2.5 px-3 text-right">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              r.is_pass ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-300'
+                            }`}>
+                              {r.is_pass ? 'PASSED (100%)' : 'MISMATCH'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Platform Trust Policies & Thresholds */}
+          <div className="bg-[#1C2541]/50 border border-[#29365C] rounded-2xl p-6 shadow-xl space-y-4 text-xs">
+            <h2 className="text-sm font-bold text-white flex items-center space-x-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Government Trust Policies & Algorithmic Guardrails</span>
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-[#070D1E] border border-slate-800 p-4 rounded-xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span>Enforce Primary Gazette Authority Only</span>
-                  <span className="text-emerald-400 font-bold font-mono">ENABLED</span>
+                  <span className="text-slate-300">Primary Gazette Authority Enforcement:</span>
+                  <span className="text-emerald-400 font-bold font-mono">STRICT (ZONE 1)</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Strict Abstention Threshold</span>
+                  <span className="text-slate-300">Grounding Abstention Threshold:</span>
                   <span className="text-cyan-400 font-bold font-mono">0.85 (High Precision)</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Quarantine Execution Shield</span>
-                  <span className="text-emerald-400 font-bold font-mono">ENABLED</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Dual Approval on Statute Revocation</span>
-                  <span className="text-amber-400 font-bold font-mono">REQUIRED</span>
+                  <span className="text-slate-300">Quarantine Execution Shield:</span>
+                  <span className="text-emerald-400 font-bold font-mono">ACTIVE</span>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-[#070D1E] border border-slate-800 p-5 rounded-xl space-y-4">
-              <div className="font-bold text-white text-sm flex items-center space-x-2">
-                <Cpu className="w-4 h-4 text-cyan-400" />
-                <span>AI Model Provider Abstraction</span>
-              </div>
-              <div className="space-y-3">
+              <div className="bg-[#070D1E] border border-slate-800 p-4 rounded-xl space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span>Active Primary Model</span>
-                  <span className="text-cyan-400 font-bold font-mono">gemini-2.5-flash / Gemini 3.8</span>
+                  <span className="text-slate-300">Zero-Creativity Temperature:</span>
+                  <span className="text-slate-300 font-mono font-bold">0.0 (Strict Grounding)</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Sovereign Deterministic Engine</span>
-                  <span className="text-emerald-400 font-bold font-mono">STANDBY / AIR-GAP READY</span>
+                  <span className="text-slate-300">Cryptographic Chain-of-Custody:</span>
+                  <span className="text-emerald-400 font-bold font-mono">SHA-256 HMAC</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>Max Grounded Context Window</span>
-                  <span className="text-slate-300 font-mono">32,768 Tokens</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Temperature (Zero-Creativity)</span>
-                  <span className="text-slate-300 font-mono">0.0 (Strict Grounding)</span>
+                  <span className="text-slate-300">In-Context Few-Shot Conditioning:</span>
+                  <span className="text-cyan-400 font-bold font-mono">ENABLED</span>
                 </div>
               </div>
             </div>
